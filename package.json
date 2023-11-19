@@ -1,0 +1,27 @@
+{
+  "name": "depoly-contract",
+  "version": "1.0.0",
+  "description": "deploy-contract",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/chai": "^4.3.10",
+    "@types/mocha": "^10.0.4",
+    "@types/node": "^20.9.2",
+    "chai": "^4.3.10",
+    "ethereum-waffle": "^4.0.10",
+    "ethers": "^6.8.1",
+    "hardhat": "^2.19.1",
+    "ts-node": "^10.9.1",
+    "typescript": "^5.2.2"
+  },
+  "dependencies": {
+    "@nomicfoundation/hardhat-ethers": "^3.0.5",
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0"
+  }
+}
