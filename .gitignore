@@ -2,3 +2,5 @@ node_modules/
 artifacts/
 cache/
 .idea/
+typechain-types/
+package-lock.json

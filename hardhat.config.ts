@@ -65,7 +65,8 @@ const config: HardhatUserConfig = {
       chainId: 32382,
       accounts: ["287382dfcde5d17400ac3c575aef32807c7b0a5fe40524bda8139ed9bcebe6f6",
       "b378399337d883857e4d5ce84b0e8803c6e0380271464c71e1cd100d1511202b"
-      ]
+      ],
+      gasPrice: 3000000
     }
   },
   mocha: {

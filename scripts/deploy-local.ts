@@ -32,10 +32,14 @@ async function deployTokens(dst: string, user: HardhatEthersSigner) {
     let DaiFactory = await ethers.getContractFactory('Dai');
 
     // console.log("1111");
-    let weth = await WethFactory.connect(user).deploy();
+    let w = await WethFactory.connect(user).deploy();
 
-    let dai = await DaiFactory.connect(user).deploy(32382);
 
+    const [weth, dai] = await Promise.all(
+        [
+            WethFactory.connect(user).deploy(),
+            DaiFactory.connect(user).deploy(32382),
+        ])
     let wethAddress = await weth.getAddress();
     let daiAddress = await dai.getAddress();
     // console.log(`${"WETH9 deployed to : ".padStart(28)}${wethAddress}`);
@@ -81,9 +85,12 @@ async function createPairs(user: HardhatEthersSigner, wethAddress: string, daiAd
     // 创建交易对
     let wethAmount: BigNumberish = ethers.parseEther('1')
     let daiAmount: BigNumberish = ethers.parseEther('1')
-    await uniFactory.createPair(wethAddress, daiAddress)
-    await weth.connect(user).approve(uniRouterAddress, wethAmount)
-    await dai.connect(user).approve(uniRouterAddress, daiAmount)
+    await Promise.all(
+        [
+            uniFactory.createPair(wethAddress, daiAddress),
+            weth.connect(user).approve(uniRouterAddress, wethAmount),
+            dai.connect(user).approve(uniRouterAddress, daiAmount),
+        ])
     console.log("23455")
     // 调用增加流动性
     await addLiquidity(user.address, wethAmount, wethAddress, daiAmount, daiAddress, uniRouter)
@@ -91,7 +98,6 @@ async function createPairs(user: HardhatEthersSigner, wethAddress: string, daiAd
 
 async function addLiquidity(dst: string, wethAmount: BigNumberish, wethAddress: string, daiAmount: BigNumberish, daiAddress: string, uniRouter: UniswapV2Router02) {
     const deadline = Math.floor((new Date()).getTime() / 1000) + 60 * 60;
-    console.log("deadline--", deadline)
     let a = ethers.parseEther('0');
     let tx = await uniRouter.addLiquidity(wethAddress, daiAddress, wethAmount, daiAmount, a, a, dst, deadline);
     console.log("tx from", tx.from)
