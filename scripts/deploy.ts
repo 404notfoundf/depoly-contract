@@ -9,10 +9,8 @@ async function main(){
     const accounts = await ethers.getSigners();
 
     const {wethAddress, daiAddress, weth, dai} = await deployTokens(accounts[1].address, accounts[0])
-    console.log("weth ---------")
-    console.log(wethAddress)
-    console.log("dai -----------")
-    console.log(daiAddress)
+    console.log("weth address", wethAddress)
+    console.log("dai address", daiAddress)
 
     const {UniFactoryAddress, UFactory} = await deployUniswapFactory(accounts[0].address, wethAddress, daiAddress);
     console.log("Uniswap Factory Address-", UniFactoryAddress);
@@ -26,20 +24,15 @@ async function main(){
 }
 
 async function deployTokens(dst: string, user: HardhatEthersSigner) {
-    // 部署Weth和Dai 两种代币合约
+    // 部署 Weth和Dai 两种代币合约
     console.log("---- enter deploy tokens ----");
     let WethFactory = await ethers.getContractFactory('WETH9');
     let DaiFactory = await ethers.getContractFactory('Dai');
-
-    // console.log("1111");
     let weth = await WethFactory.connect(user).deploy();
-
     let dai = await DaiFactory.connect(user).deploy(32382);
-
     let wethAddress = await weth.getAddress();
     let daiAddress = await dai.getAddress();
-    // console.log(`${"WETH9 deployed to : ".padStart(28)}${wethAddress}`);
-    // console.log(`${"Dai deployed to : ".padStart(28)}${daiAddress}`);
+
     // 向对应的地方发钱
     let amount = ethers.parseEther('5')
     await weth.connect(user).deposit({value: amount})
@@ -84,7 +77,6 @@ async function createPairs(user: HardhatEthersSigner, wethAddress: string, daiAd
     await uniFactory.createPair(wethAddress, daiAddress)
     await weth.connect(user).approve(uniRouterAddress, wethAmount)
     await dai.connect(user).approve(uniRouterAddress, daiAmount)
-    console.log("23455")
     // 调用增加流动性
     await addLiquidity(user.address, wethAmount, wethAddress, daiAmount, daiAddress, uniRouter)
 }
