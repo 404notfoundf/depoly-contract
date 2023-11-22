@@ -19,8 +19,8 @@ async function main(){
     console.log("Uniswap Router Address--", UniRouterAddress);
 
     await createPairs(accounts[0], wethAddress, daiAddress, weth, dai, UFactory, URouter, UniRouterAddress)
-    const {SandWichAddress} = await deploySandwich(accounts[1].address);
-    console.log("SandWichAddress --", SandWichAddress)
+    const {SandwichAddress} = await deploySandwich(accounts[1].address);
+    console.log("SandwichAddress --", SandwichAddress)
 }
 
 async function deployTokens(dst: string, user: HardhatEthersSigner) {
@@ -93,11 +93,11 @@ async function deploySandwich(owner: string) {
     console.log("-- sanwich contract---")
     console.log("owner--", owner)
     const S = await ethers.getContractFactory('Sandwich');
-    const [Swich] = await Promise.all(
+    const [Sandwich] = await Promise.all(
         [S.deploy(owner)]
     );
-    let SandWichAddress = await Swich.getAddress();
-    return {SandWichAddress}
+    let SandwichAddress = await Sandwich.getAddress();
+    return {SandwichAddress}
 }
 
 main().then(() => console.log("123")).catch(console.error);
