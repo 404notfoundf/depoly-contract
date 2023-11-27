@@ -14,16 +14,16 @@
     "@types/chai": "^4.3.10",
     "@types/mocha": "^10.0.4",
     "@types/node": "^20.9.2",
+    "@types/readline-sync": "^1.4.8",
     "chai": "^4.3.10",
-    "ethereum-waffle": "^4.0.10",
-    "ethers": "^6.8.1",
+    "ethereum-waffle": "^2.2.0",
     "hardhat": "^2.19.1",
+    "readline-sync": "^1.4.10",
     "ts-node": "^10.9.1",
     "typechain": "^8.3.2",
     "typescript": "^5.2.2"
   },
   "dependencies": {
-    "@nomicfoundation/hardhat-ethers": "^3.0.5",
     "@nomicfoundation/hardhat-toolbox": "^4.0.0"
   }
 }

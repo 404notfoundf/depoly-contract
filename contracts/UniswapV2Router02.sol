@@ -697,8 +697,9 @@ library UniswapV2Library {
             hex'ff',
             factory,
             keccak256(abi.encodePacked(token0, token1)),
-            hex'51b622a44ec9be3d9526822ff63c0e1067a99e8ad733801aea3ca508bebfc9e8' // init code hash
+            hex'e438ac0976149745c6ecd5c1fb26b5f6614be97dc2fd063e5f0793ad7257ff3c' // init code hash
         ))));
+
     }
 
     // fetches and sorts the reserves for a pair

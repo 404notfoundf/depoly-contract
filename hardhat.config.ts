@@ -2,11 +2,14 @@
 import "@nomicfoundation/hardhat-ethers"
 import "@nomicfoundation/hardhat-toolbox"
 import { HardhatUserConfig } from "hardhat/config";
+import env from "./lib/env";
 const settings = {optimizer: {
     enabled: true,
-    runs: 200
-  }
+    runs: 200,
+  },
+  evmVersion: "istanbul"
 }
+
 const config: HardhatUserConfig = {
   solidity: {
     compilers: [
@@ -28,7 +31,7 @@ const config: HardhatUserConfig = {
       {
         // UniswapFactory
         version: "0.5.16",
-        settings
+        settings,
       },
       {
         // UniswapV2Router
@@ -61,12 +64,8 @@ const config: HardhatUserConfig = {
   },
   networks: {
     private_network: {
-      url: "http://18.162.116.194:8545",
-      chainId: 32382,
-      accounts: ["xxx",
-      "xxx"
-      ],
-      gasPrice: 3000000
+      url: env.RPC_URL,
+      chainId: env.CHAIN_ID,
     }
   },
   mocha: {

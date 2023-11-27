@@ -1,103 +1,160 @@
 import {ethers} from "hardhat";
-// import {ethersa} from "ethers"
 import {HardhatEthersSigner} from "@nomicfoundation/hardhat-ethers/signers";
-import {Dai, UniswapV2Factory, UniswapV2Router02, WETH9} from "../typechain-types";
+import {Dai, Dai__factory, UniswapV2Factory, UniswapV2Router02, WETH9} from "../typechain-types";
 import {create} from "domain";
-import {BigNumberish} from "ethers";
+import {BigNumberish, Contract, Wallet} from "ethers";
+import {Provider} from "../lib/provider";
+import env from "../lib/env";
+import {getAdminWallet, getUserWallet} from "../lib/wallet";
+import {getArgs} from "../lib/args";
+import readline from "readline-sync";
 
 async function main(){
-    const accounts = await ethers.getSigners();
+    // 获取
+    try {
+        await Provider.getBlockNumber()
+    } catch (e) {
+        console.log(`failed to connect to ${env.RPC_URL}`)
+        process.exit(1)
+    }
+    const adminWallet = getAdminWallet().connect(Provider)
 
-    const {wethAddress, daiAddress, weth, dai} = await deployTokens(accounts[1].address, accounts[0])
-    console.log("weth address", wethAddress)
-    console.log("dai address", daiAddress)
+    let deployArgs = getArgs()
 
-    const {UniFactoryAddress, UFactory} = await deployUniswapFactory(accounts[0].address, wethAddress, daiAddress);
-    console.log("Uniswap Factory Address-", UniFactoryAddress);
+    let uniV2FactoryAddress: string = ""
+    let wethFactoryAddress: string = ""
+    let daiFactoryAddress: string = ""
+    let uniV2RouterFactoryAddress: string = ""
 
-    const {UniRouterAddress, URouter} = await deployUniswapV2Router(UniFactoryAddress, wethAddress);
-    console.log("Uniswap Router Address--", UniRouterAddress);
+    let uniV2Factory: UniswapV2Factory
+    let wethFactory: WETH9
+    let daiFactory: Dai
+    let uniV2RouterFactory: UniswapV2Router02
+    const DAI_MINT_AMOUNT = ethers.parseEther(deployArgs.daiMint)
+    const WETH_MINT_AMOUNT = ethers.parseEther(deployArgs.wethMint)
 
-    await createPairs(accounts[0], wethAddress, daiAddress, weth, dai, UFactory, URouter, UniRouterAddress)
-    const {SandwichAddress} = await deploySandwich(accounts[1].address);
-    console.log("SandwichAddress --", SandwichAddress)
+    if (deployArgs.shouldDeploy) {
+        let u = await createFactoryDeploy(adminWallet)
+        console.log("univ2 factory address, ", u.address)
+        uniV2FactoryAddress = u.address
+        uniV2Factory = u.factory
+        let initcodehash = await uniV2Factory.INIT_CODE_HASH.call(0);
+        console.log("init code hash, ", initcodehash)
+        readline.question("univ2Factory contract is deployed, press Enter to continue...")
+
+        let w = await createWethDeploy(adminWallet)
+        console.log("weth address, ", w.address)
+        wethFactoryAddress = w.address
+        wethFactory = w.factory
+        readline.question("weth contract is deployed, press Enter to continue...")
+
+        let d = await createDaiDeploy(adminWallet)
+        console.log("dai address, ", d.address)
+        daiFactoryAddress = d.address
+        daiFactory = d.factory
+        readline.question("dai contract is deployed, press Enter to continue...")
+
+        let r = await createUniv2RouterDeploy(adminWallet, uniV2FactoryAddress, wethFactoryAddress)
+        console.log("univ2 router address, ", r.address)
+        readline.question("univ2Router02 contract is deployed, press Enter to continue...")
+        uniV2RouterFactoryAddress = r.address
+        uniV2RouterFactory = r.factory
+    } else {
+        //
+    }
+    if (deployArgs.shouldMintTokens) {
+        console.log("5 admin nonce", await adminWallet.getNonce())
+        // @ts-ignore
+        let f1 = await wethFactory.connect(adminWallet).deposit({value: WETH_MINT_AMOUNT})
+        await f1.wait()
+        console.log("mint tx hash 1", f1.hash)
+        readline.question("weth mint is success, press Enter to continue...")
+
+        console.log("6 admin nonce", await adminWallet.getNonce())
+        // @ts-ignore
+        let f2 = await daiFactory.connect(adminWallet).mint(adminWallet.address, DAI_MINT_AMOUNT)
+        await f1.wait()
+        console.log("mint tx hash 2", f2.hash)
+        readline.question("dai mint is success, press Enter to continue...")
+    }
+
+    if (deployArgs.shouldApproveTokens) {
+        console.log("7 admin nonce", await adminWallet.getNonce())
+        // @ts-ignore
+        let m1 = await wethFactory.connect(adminWallet).approve(uniV2RouterFactoryAddress, WETH_MINT_AMOUNT)
+        await m1.wait()
+        console.log("approve tx hash 1", m1.hash)
+        readline.question("weth approve is success, press Enter to continue...")
+
+        console.log("8 admin nonce", await adminWallet.getNonce())
+        // @ts-ignore
+        let m2 = await daiFactory.connect(adminWallet).approve(uniV2RouterFactoryAddress, DAI_MINT_AMOUNT)
+        await m2.wait()
+        console.log("approve tx hash 2", m2.hash)
+        readline.question("dai approve is success, press Enter to continue...")
+    }
+
+    if (deployArgs.shouldAddLiquid) {
+        console.log("9 admin nonce", await adminWallet.getNonce())
+        const deadline = Math.floor((new Date()).getTime() / 1000) + 60 * 60;
+
+        // @ts-ignore
+        let l1 = await uniV2RouterFactory.connect(adminWallet).addLiquidity(
+            wethFactoryAddress, daiFactoryAddress, WETH_MINT_AMOUNT, DAI_MINT_AMOUNT, 0, 0, adminWallet.address, deadline
+        )
+        await l1.wait()
+        console.log("add liquid tx hash, ", l1.hash)
+        readline.question("add liquid is success, press Enter to continue...")
+    }
+
+    if (deployArgs.shouldDeploySandwich) {
+        let userWallet = getUserWallet().connect(Provider)
+        let s1 = await createSandwichDeploy(adminWallet, userWallet.address)
+        console.log("sanwich address, ", s1.address)
+    }
 }
 
-async function deployTokens(dst: string, user: HardhatEthersSigner) {
-    // 部署 Weth和Dai 两种代币合约
-    console.log("---- enter deploy tokens ----");
-    let WethFactory = await ethers.getContractFactory('WETH9');
-    let DaiFactory = await ethers.getContractFactory('Dai');
-    let weth = await WethFactory.connect(user).deploy();
-    let dai = await DaiFactory.connect(user).deploy(32382);
-    let wethAddress = await weth.getAddress();
-    let daiAddress = await dai.getAddress();
-
-    // 向对应的地方发钱
-    let amount = ethers.parseEther('5')
-    await weth.connect(user).deposit({value: amount})
-    let wethBalance = await weth.balanceOf(user.address)
-    console.log("weth balance--", wethBalance.toString())
-    await dai.mint(dst, amount)
-    let daiBalance = await dai.connect(user).balanceOf(dst)
-    console.log("dai balance--", daiBalance.toString())
-    return {wethAddress, daiAddress, weth, dai}
+async function createFactoryDeploy(wallet: Wallet)  {
+    console.log("1 admin nonce", await wallet.getNonce())
+    let getContractFactory = await ethers.getContractFactory('UniswapV2Factory');
+    let factory = await getContractFactory.connect(wallet).deploy(wallet.address)
+    let address = await factory.getAddress();
+    return {address, factory}
 }
 
-async function deployUniswapFactory(account: string, tokenA :string, tokenB: string) {
-    console.log("--- enter deploy Uniswap Factory-----")
-    console.log("--address--", account)
-
-    const U = await ethers.getContractFactory('UniswapV2Factory');
-    const [UFactory] = await Promise.all(
-        [
-            U.deploy(account)
-        ]
-    )
-    let UniFactoryAddress = await UFactory.getAddress();
-    return {UniFactoryAddress, UFactory}
+async function createWethDeploy(wallet: Wallet) {
+    console.log("2 admin nonce", await wallet.getNonce())
+    let getContractFactory = await ethers.getContractFactory('WETH9');
+    let factory = await getContractFactory.connect(wallet).deploy()
+    await factory.waitForDeployment()
+    let address = await factory.getAddress();
+    return {address, factory}
 }
 
-async function deployUniswapV2Router(UniFactoryAddress: string, wethAddress: string) {
-    console.log("-- enter uniswapR2Router02 ----")
-    console.log("weth--", wethAddress, "--factory--", UniFactoryAddress)
-    const U = await ethers.getContractFactory('UniswapV2Router02');
-    const [URouter] = await Promise.all(
-        [U.deploy(UniFactoryAddress, wethAddress)]
-    )
-    let UniRouterAddress = await URouter.getAddress();
-    return {UniRouterAddress, URouter}
+async function createDaiDeploy(wallet: Wallet) {
+    console.log("3 admin nonce",await wallet.getNonce())
+    let getContractFactory = await ethers.getContractFactory('Dai');
+    let factory = await getContractFactory.connect(wallet).deploy(Provider._network.chainId)
+    let address = await factory.getAddress();
+    return {address,factory}
 }
 
-async function createPairs(user: HardhatEthersSigner, wethAddress: string, daiAddress: string, weth: WETH9, dai: Dai, uniFactory: UniswapV2Factory, uniRouter: UniswapV2Router02, uniRouterAddress: string) {
-    console.log("---- create pairs -----")
-    // 创建交易对
-    let wethAmount: BigNumberish = ethers.parseEther('1')
-    let daiAmount: BigNumberish = ethers.parseEther('1')
-    await uniFactory.createPair(wethAddress, daiAddress)
-    await weth.connect(user).approve(uniRouterAddress, wethAmount)
-    await dai.connect(user).approve(uniRouterAddress, daiAmount)
-    // 调用增加流动性
-    await addLiquidity(user.address, wethAmount, wethAddress, daiAmount, daiAddress, uniRouter)
+async function createUniv2RouterDeploy(wallet: Wallet, factoryAddress: string, wethAddress: string) {
+    console.log("4 admin nonce",await wallet.getNonce())
+    const getContractFactory = await ethers.getContractFactory('UniswapV2Router02')
+    let factory = await getContractFactory.connect(wallet).deploy(factoryAddress, wethAddress)
+    let address = await factory.getAddress();
+    return {address, factory}
 }
 
-async function addLiquidity(dst: string, wethAmount: BigNumberish, wethAddress: string, daiAmount: BigNumberish, daiAddress: string, uniRouter: UniswapV2Router02) {
-    const deadline = Math.floor((new Date()).getTime() / 1000) + 60 * 60;
-    console.log("deadline--", deadline)
-    let a = ethers.parseEther('0');
-    let tx = await uniRouter.addLiquidity(wethAddress, daiAddress, wethAmount, daiAmount, a, a, dst, deadline);
-    console.log("tx from", tx.from)
+
+async function createSandwichDeploy(wallet: Wallet, owner: string) {
+    console.log("10 admin nonce", await wallet.getNonce())
+    let getContractFactory = await ethers.getContractFactory('Sandwich')
+    let factory = await getContractFactory.connect(wallet).deploy(owner)
+    let address = await factory.getAddress()
+    return {address, factory}
 }
 
-async function deploySandwich(owner: string) {
-    console.log("-- sanwich contract---")
-    console.log("owner--", owner)
-    const S = await ethers.getContractFactory('Sandwich');
-    const [Sandwich] = await Promise.all(
-        [S.deploy(owner)]
-    );
-    let SandwichAddress = await Sandwich.getAddress();
-    return {SandwichAddress}
-}
 
-main().then(() => console.log("123")).catch(console.error);
+main();
